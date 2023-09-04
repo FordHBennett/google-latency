@@ -1,0 +1,6 @@
+Socket created successfully
+IP address is valid
+ICMP packet sent successfully
+ICMP packet sent successfully
+ICMP packet sent successfully
+ICMP packet sent successfully
