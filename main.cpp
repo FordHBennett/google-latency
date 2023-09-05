@@ -1,8 +1,5 @@
 #include <iostream>
-#include <cstdlib>
-#include <cstring>
 #include <ctime>
-#include <cerrno>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <netinet/ip_icmp.h>
@@ -50,7 +47,7 @@ int main(int argc, char* argv[]) {
     }
     else
     {
-        std::cout << "IP address is valid" << std::endl;
+        std::cout << "IP address " << targetIP << " is valid" << std::endl;
     }
 
     // Prepare the ICMP packet
@@ -74,6 +71,7 @@ int main(int argc, char* argv[]) {
         ssize_t sent_bytes = sendto(sock, packet, PACKET_SIZE, 0, reinterpret_cast<struct sockaddr*>(&targetAddress), sizeof(targetAddress));
         if (sent_bytes < 0) {
             perror("Error sending ICMP packet");
+            close(sock);
             return 1;
         }
         else
@@ -86,20 +84,30 @@ int main(int argc, char* argv[]) {
         struct sockaddr_in senderAddress;
         socklen_t senderAddressLen = sizeof(senderAddress);
         ssize_t recv_bytes = recvfrom(sock, recv_packet, PACKET_SIZE, 0, reinterpret_cast<struct sockaddr*>(&senderAddress), &senderAddressLen);
+        if (recv_bytes < 0) {
+            perror("Error receiving ICMP reply");
+            close(sock);
+            return 1;
+        }
+        else
+        {
+            std::cout << "ICMP reply received successfully" << std::endl;
+            std::cout << "Received " << recv_bytes << " bytes" << std::endl;
+        }
 
         // Calculate and print the round-trip time
-        if (recv_bytes >= sizeof(struct ip) + sizeof(struct icmp))
+        if (static_cast<ssize_t>(recv_bytes) >= static_cast<ssize_t>(sizeof(struct ip) + sizeof(struct icmp)))
         {
             std::clock_t end_time = std::clock();
-            elapsed_time = (static_cast<double>(end_time - start_time) / CLOCKS_PER_SEC * 1000.0 + elapsed_time)/(tries + 1);  // Convert to milliseconds
-            std::cout << "Received ICMP reply from " << inet_ntoa(senderAddress.sin_addr) << ": time=" << elapsed_time << "ms" << std::endl;
+            double current_ping = static_cast<double>(end_time - start_time) / CLOCKS_PER_SEC * 1000.0;  // Convert to milliseconds
+            std::cout << "Received ICMP reply from " << inet_ntoa(senderAddress.sin_addr) << ": time=" << current_ping << "ms" << std::endl;
+            elapsed_time = (elapsed_time + current_ping) / (tries + 1);
             std::cout << "Running average is " << elapsed_time << "ms" << std::endl;
         }
         else
         {
             std::cerr << "No reply received." << std::endl;
         }
-
         sleep(10);  // Wait before sending the next packet
     }
 
